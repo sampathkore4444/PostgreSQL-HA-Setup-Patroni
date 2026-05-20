@@ -4,6 +4,51 @@ This document provides a step-by-step guide to setting up a highly available Pos
 
 ## Architecture Overview
 
+```
+┌─────────────────────────────────────┐
+│         Client Applications          │
+└─────────────┬───────────────────────┘
+              │
+              ▼
+┌─────────────────────────────────────┐
+│    HAProxy Load Balancer (Port 5000) │
+│         haproxynode: 192.168.32.135  │
+└─────────────┬───────────────────────┘
+              │
+              │ (Routes to Leader)
+              │
+┌─────────────┴───────────────────────┐
+│                                     │
+▼                                     ▼
+┌──────────────────────────────┐    ┌──────────────────────────────┐
+│      Node 1 (Primary/Leader) │    │     Node 2 (Replica/Standby) │
+│         192.168.32.130       │    │        192.168.32.131        │
+│                              │    │                              │
+│  ┌────────────────────────┐  │    │  ┌────────────────────────┐  │
+│  │   PostgreSQL 14         │  │    │  │   PostgreSQL 14         │  │
+│  │   Port: 5432           │  │    │  │   Port: 5432           │  │
+│  └────────────────────────┘  │    │  └────────────────────────┘  │
+│  ┌────────────────────────┐  │    │  ┌────────────────────────┐  │
+│  │   Patroni Agent         │  │    │  │   Patroni Agent         │  │
+│  │   Port: 8008           │  │    │  │   Port: 8008           │  │
+│  └────────────────────────┘  │    │  └────────────────────────┘  │
+└──────────────┬───────────────┘    └──────────────┬───────────────┘
+              │                                     │
+              │  (Leader Election & Configuration)  │
+              │                                     │
+              └──────────────┬──────────────────────┘
+                            │
+                            ▼
+┌─────────────────────────────────────┐
+│         etcd Cluster                 │
+│      etcdnode: 192.168.32.140        │
+│      Port: 2379                      │
+│                                      │
+│  (Distributed Consensus & State      │
+│   Management for Patroni)           │
+└─────────────────────────────────────┘
+```
+
 - **etcd Cluster**: 3-node etcd cluster for storing Patroni configuration and leader election. (Does NOT run Patroni)
 - **PostgreSQL Nodes**: 2+ PostgreSQL instances managed by Patroni (at least 2 for HA, 3 recommended). Patroni runs on these nodes.
 - **HAProxy**: Load balancer that routes traffic to the current PostgreSQL leader and provides health checks.
